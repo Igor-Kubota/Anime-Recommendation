@@ -81,7 +81,7 @@ RETURN *
 ```
 resultado - grafo:
 
-![shadows house](imgs/1 - shadow_house.png)
+![shadows house](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/1%20-%20shadow_house.png)
 
 ## Estrutura do Repositorio
 ```
