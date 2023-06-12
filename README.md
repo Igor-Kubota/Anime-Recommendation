@@ -72,7 +72,10 @@ Após a importação dos dados e o merge nas tabelas para fazer os relacionament
 
 _**Todas a Queries se encontram no arquivo Queries.sql**_
 
-1 - Exemplo de Seiyuus do Anime Shadow House:
+**Resultados em formato de tabelas estão disponíveis na pasta _/exported_csv/_**
+
+
+_1 - Exemplo de Seiyuus do Anime Shadow House:_
 ```sql
 MATCH (a)-[c:cast]->(s)
 WHERE a.name =~ '(?i).*Shadow House.*'
@@ -82,6 +85,263 @@ RETURN *
 resultado - grafo:
 
 ![shadows house](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/1%20-%20shadow_house.png)
+
+
+Resultado - Tabela: 
+```
+╒═════════════════╕
+│s.VoiceActor     │
+╞═════════════════╡
+│"Yuu Sasahara"   │
+├─────────────────┤
+│"Yumi Kakazu"    │
+├─────────────────┤
+│"Koudai Sakai"   │
+├─────────────────┤
+│"Reiji Kawashima"│
+├─────────────────┤
+│"Akari Kitou"    │
+├─────────────────┤
+│"Ayane Sakura"   │
+└─────────────────┘
+```
+_2 - Exemplo de animes da Akari Kitou:_
+```sql
+MATCH (a)-[c:cast]->(s)
+WHERE s.VoiceActor =~ '(?i).*Akari Kitou.*'
+RETURN *
+-- return a.Name -- para pegar a tabela com os nomes
+```
+resultado - grafo:
+
+![akari](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/2%20-%20akari_kitou.png)
+
+
+Resultado - Tabela com linhas de exemplo: 
+```
+╒══════════════════════════════════════════════════════════════════════╕
+│a.Name                                                                │
+╞══════════════════════════════════════════════════════════════════════╡
+│"Akebi's Sailor Uniform"                                              │
+├──────────────────────────────────────────────────────────────────────┤
+│"The Ones Within"                                                     │
+├──────────────────────────────────────────────────────────────────────┤
+│"In/Spectre Mini Anime"                                               │
+├──────────────────────────────────────────────────────────────────────┤
+│"TONIKAWA: Over the Moon for You OVA"                                 │
+├──────────────────────────────────────────────────────────────────────┤
+│"Harukana Receive"                                                    │
+├──────────────────────────────────────────────────────────────────────┤
+│"Demon Slayer: Kimetsu no Yaiba - Entertainment District Arc"         │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+_3 - Contagem de animes por dublador:_
+
+```sql
+MATCH (s)<-[:participa]-(a)
+RETURN s.VoiceActor, COUNT(*) AS Contagem
+ORDER BY Contagem DESC
+```
+
+Resultado - Tabela com 5 linhas de exemplo: 
+```
+╒══════════════════════╤════════╕
+│s.VoiceActor          │Contagem│
+╞══════════════════════╪════════╡
+│"Kana Hanazawa"       │281     │
+├──────────────────────┼────────┤
+│"Takahiro Sakurai"    │273     │
+├──────────────────────┼────────┤
+│"Jun Fukuyama"        │258     │
+├──────────────────────┼────────┤
+│"Miyuki Sawashiro"    │233     │
+├──────────────────────┼────────┤
+│"Rie Kugimiya"        │229     │
+├──────────────────────┼────────┤
+│"Akiko Kimura"        │23      │
+└──────────────────────┴────────┘
+```
+
+_4 - relacionamento primeiro nivel - quem trabalhou com Rikako Aida:_
+```sql
+MATCH (s1: seiyuu)<-[c1:cast]-(a)-[c2:cast]->(s2:seiyuu)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s1 <> s2
+RETURN *
+```
+resultado - grafo:
+
+![primeiro nivel](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/3%20-%20first-level.png)
+
+```sql
+MATCH (s1: seiyuu)<-[c1:cast]-(a)-[c2:cast]->(s2:seiyuu)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s1 <> s2
+RETURN s1.VoiceActor, a.Name ,s2.VoiceActor
+ORDER BY s1.VoiceActor, a.Name ,s2.VoiceActor
+```
+
+Resultado - Tabela com linhas de exemplo: 
+```
+╒═════════════╤═══════════════════════════════════════╤══════════════════╕
+│s1.VoiceActor│a.Name                                 │s2.VoiceActor     │
+╞═════════════╪═══════════════════════════════════════╪══════════════════╡
+│"Rikako Aida"│"Happy Party Train"                    │"Ai Furihata"     │
+├─────────────┼───────────────────────────────────────┼──────────────────┤
+│"Rikako Aida"│"Happy Party Train"                    │"Aina Suzuki"     │
+├─────────────┼───────────────────────────────────────┼──────────────────┤
+│"Rikako Aida"│"Happy Party Train"                    │"Anju Inami"      │
+├─────────────┼───────────────────────────────────────┼──────────────────┤
+│"Rikako Aida"│"The Aquatope on White Sand Mini Anime"│"Miku Itou"       │
+├─────────────┼───────────────────────────────────────┼──────────────────┤
+│"Rikako Aida"│"The Aquatope on White Sand Mini Anime"│"Shimba Tsuchiya" │
+├─────────────┼───────────────────────────────────────┼──────────────────┤
+│"Rikako Aida"│"The Aquatope on White Sand Mini Anime"│"Youhei Azakami"  │
+└─────────────┴───────────────────────────────────────┴──────────────────┘
+```
+
+_5 - Relacionamento segundo nivel - Dubladores que trabalharam em Animes com a dubladora Aina Suzuki que Trabalhou com Rikako Aida - Grafo - Detalhe na dubladora 'Aina Suzuki':_
+```sql
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)
+WHERE s1 <> s3
+AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN a1.Name , s2.VoiceActor AS Proximo_Rikako_Aida, a2.Name, s3.VoiceActor AS Trabalhou_com_proximos_Rikako_aida
+ORDER BY a1.Name, s2.VoiceActor, a2.Name, s3.VoiceActor
+```
+Resultado - grafo:
+![segundo nivel detalhado](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/5%20-%20second-level-detailed.png)
+
+Resultado - Tabela com linhas de exemplo: 
+```
+╒═══════════════╤═══════════════╤═══════════════╤═══════════════╕
+│a1.Name        │Proximo_Rikako_│a2.Name        │Trabalhou_com_p│
+│               │Aida           │               │roximos_Rikako_│
+│               │               │               │aida           │
+╞═══════════════╪═══════════════╪═══════════════╪═══════════════╡
+│"Happy Party Tr│"Aina Suzuki"  │"Alice or Alice│"Ayaka Suwa"   │
+│ain"           │               │: Siscon Nii-sa│               │
+│               │               │n to Futago no │               │
+│               │               │Imouto Recap"  │               │
+├───────────────┼───────────────┼───────────────┼───────────────┤
+│"Happy Party Tr│"Aina Suzuki"  │"Alice or Alice│"Ayane Sakura" │
+│ain"           │               │: Siscon Nii-sa│               │
+│               │               │n to Futago no │               │
+│               │               │Imouto Recap"  │               │
+├───────────────┼───────────────┼───────────────┼───────────────┤
+│"Happy Party Tr│"Aina Suzuki"  │"Dropkick on My│"Rico Sasaki"  │
+│ain"           │               │ Devil!! Dash" │               │
+├───────────────┼───────────────┼───────────────┼───────────────┤
+│"Happy Party Tr│"Aina Suzuki"  │"Dropkick on My│"Riho Iida"    │
+│ain"           │               │ Devil!! Dash" │               │
+├───────────────┼───────────────┼───────────────┼───────────────┤
+│"Senryu Girl"  │"Hiroyuki Yoshi│"Hakuouki: A Me│"Tomohiro Tsubo│
+│               │no"            │mory of Snow Fl│i"             │
+│               │               │owers"         │               │
+└───────────────┴───────────────┴───────────────┴───────────────┘
+```
+
+_6 - Relacionamento segundo nivel - Quem Trabalhou com os atores que trabalharam com Rikako Aida:_
+```sql
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)
+WHERE s1 <> s3
+AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s2.VoiceActor =~ '(?i).*Aina Suzuki.*'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN *
+```
+
+Resultado - grafo:
+![segundo nivel geral ](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/4%20-%20second-level-general.png)
+
+_7 - Recomendação Segundo nivel -  Anime baseado na dubladora Aina Suzuki que trabalhou com Rikako Aida - Detalhe na dubladora 'Aina Suzuki' e no anime 'Dropkick on My Devil!':_
+```sql
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)<-[c5:cast]-(a3:anime)
+WHERE s1 <> s3
+AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s2.VoiceActor =~ '(?i).*Aina Suzuki.*'
+AND a2.Name ='Dropkick on My Devil!'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN *
+```
+
+Resultado - grafo:
+![recomendacao](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/6%20-%20Recomendation.png)
+
+Resultado - Tabela com linhas de exemplo
+```
+╒═════════════╤═════════════╤═════════════╤═════════════╤═════════════╕
+│a1.Name      │Proximo_Rikak│a2.Name      │Trabalhou_com│a3.Name      │
+│             │o_Aida       │             │_proximos_Rik│             │
+│             │             │             │ako_aida     │             │
+╞═════════════╪═════════════╪═════════════╪═════════════╪═════════════╡
+│"Happy Party │"Aina Suzuki"│"Alice or Ali│"Ayaka Suwa" │"Hello!! KINM│
+│Train"       │             │ce: Siscon Ni│             │OZA!"        │
+│             │             │i-san to Futa│             │             │
+│             │             │go no Imouto │             │             │
+│             │             │Recap"       │             │             │
+├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│"Happy Party │"Aina Suzuki"│"Alice or Ali│"Ayaka Suwa" │"Hikari: Kari│
+│Train"       │             │ce: Siscon Ni│             │ya wo Tsunagu│
+│             │             │i-san to Futa│             │ Monogatari" │
+│             │             │go no Imouto │             │             │
+│             │             │Recap"       │             │             │
+├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│"Happy Party │"Aina Suzuki"│"Alice or Ali│"Ayane Sakura│"Charlotte"  │
+│Train"       │             │ce: Siscon Ni│"            │             │
+│             │             │i-san to Futa│             │             │
+│             │             │go no Imouto │             │             │
+│             │             │Recap"       │             │             │
+├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│"Happy Party │"Aina Suzuki"│"Don't Toy Wi│"Daiki Yamash│"Blue Period.│
+│Train"       │             │th Me, Miss N│ita"         │"            │
+│             │             │agatoro"     │             │             │
+└─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+```
+
+_8 - Caminho para chegar até Riho Iida :_
+
+```sql
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s3.VoiceActor =~ '(?i).*Riho Iida.*'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN *
+```
+
+Resultado - grafo:
+![caminho](https://github.com/Igor-Kubota/Anime-Recommendation/blob/main/imgs/7%20-%20caminho.png)
+
+
+_9 - Caminhos e força de cada Caminho para chegar até Riho Iida :_
+```sql
+MATCH (s1:seiyuu)<-[c1:cast]-(a1)-[c2:cast]->(s2), (s2)<-[c3:cast]-(a2)-[c4:cast]->(s3)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s3.VoiceActor =~ '(?i).*Riho Iida.*'
+AND NOT (s1)<-[:cast]-()-[:cast]->(s3) AND s1 <> s3
+RETURN s2.VoiceActor, s3.VoiceActor AS Recomendado, COUNT(*) AS Força
+ORDER BY Força DESC
+```
+
+Resultado - Tabela com Linhas de exemplo
+```
+╒═════════════╤═══════════╤═════╕
+│s2.VoiceActor│Recomendado│Força│
+╞═════════════╪═══════════╪═════╡
+│"Aina Suzuki"│"Riho Iida"│9    │
+├─────────────┼───────────┼─────┤
+│"Miku Itou"  │"Riho Iida"│2    │
+└─────────────┴───────────┴─────┘
+```
+
+
+
+
+
+
+
+
 
 ## Estrutura do Repositorio
 ```
