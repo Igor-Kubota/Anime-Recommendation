@@ -9,10 +9,8 @@ WHERE name STARTS WITH 'server.memory'
 RETURN name, value
 ORDER BY name
 
-// **********************************************************
+--------------- MONTANDO OS DADOS A SEREM TRABALHADOS NO NEO4J ----------------------------
 
-MATCH (n)
-DELETE n;
 
 // Importando os Animes
 LOAD CSV WITH HEADERS FROM "file:///anime_treated.csv" AS animedb
@@ -28,12 +26,14 @@ LOAD CSV WITH HEADERS FROM "file:///seiyuu_treated_only.csv" AS seiyuu
 FIELDTERMINATOR ','
 CREATE (:seiyuu {id_seiyuu: seiyuu.id_seiyuu , VoiceActor: seiyuu.seiyuu})
 
+
+// Importando os Cast
 LOAD CSV WITH HEADERS FROM "file:///cast.csv" AS cast
 FIELDTERMINATOR ','
 CREATE (:cast {id_anime:cast.Rank, id_seiyuu :cast.id_seiyuu, Character :cast.char})
 
 
-// indices
+// Criando os indices
 CREATE INDEX idx_idanime FOR (a:anime)
 ON (a.rank_anime)
 CREATE INDEX idx_nameanime FOR (a:anime)
@@ -49,8 +49,9 @@ ON (s.Voice_Actor)
 CREATE INDEX idx_char FOR (c:cast)
 ON (c.Character)
 
+------------------CONSULTAS NO NEO4J------------------------------------------------------------
 
-// relacionando anime e dublador e cast
+// relacionando anime , dublador e cast
 
 MATCH (a:anime),(s:seiyuu), (ca:cast)
 WHERE a.rank_anime = ca.id_anime
@@ -59,168 +60,99 @@ MERGE (a)-[c:cast {dubla: true}]->(s)
 WITH COUNT(*) AS AFFECTED
 RETURN *
 
-MATCH (f:Filme),(a:Artista),(elc:Elencos)
-WHERE f.id_filme = elc.id_filme
-AND a.id_ator = elc.id_ator
-MERGE (f)-[e:Elenco {tipo_participação: elc.participação }]->(a)
-WITH COUNT(*) AS AFFECTED
-RETURN *
 
+// Exemplo de Seiyuus do Anime Shadow House -> imagem e tabela
+MATCH (a)-[c:cast]->(s)
+WHERE a.name =~ '(?i).*Shadow House.*'
+RETURN s.VoiceActor
 
-
-// Exemplo da relação entre Seiyuu e Anime -> img1
-
-
-//Participou Akari Kitou
+//Exemplo de animes da Akari Kitou -> imagem e tabela
 MATCH (a)-[c:cast]->(s)
 WHERE s.VoiceActor =~ '(?i).*Akari Kitou.*'
 RETURN a.Name
 
-//Exemplo de animes da Akari Kitou -> img2
 
-
+//Contagem de animes por dublador -> tabela
 MATCH (s)<-[:participa]-(a)
 RETURN s.VoiceActor, COUNT(*) AS Contagem
 ORDER BY Contagem DESC
+------------Primeiro Nivel-----------------------------------------------------
 
-//Contagem de animes por dublador -> img3
-
-
-
-// quem trabalhou com Rikako Aida
-MATCH (s1: seiyuu)<-[:participa]-(a)-[:participa]->(s2:seiyuu)
+// relacionamento primeiro nivel - quem trabalhou com Rikako Aida - Grafo
+MATCH (s1: seiyuu)<-[c1:cast]-(a)-[c2:cast]->(s2:seiyuu)
 WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
 AND s1 <> s2
 RETURN *
 
+// relacionamento primeiro nivel - quem trabalhou com Rikako Aida - Tabela
+MATCH (s1: seiyuu)<-[c1:cast]-(a)-[c2:cast]->(s2:seiyuu)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s1 <> s2
+RETURN s1.VoiceActor, a.Name ,s2.VoiceActor
+ORDER BY s1.VoiceActor, a.Name ,s2.VoiceActor
 
 
+------------Segundo Nivel-----------------------------------------------------
 
-MATCH (s1:seiyuu)<-[:participa]-(a1:anime)-[:participa]->       (s2:seiyuu)     <-[:participa]-(a2:anime)-[:participa]->(s3:seiyuu)
+// Relacionamento segundo nivel - Quem Trabalhou com os atores que trabalharam com Rikako Aida - Tabela
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)
 WHERE s1 <> s3
 AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
-AND NOT (s1)<-[:participa]-(:anime)-[:participa]->(s3)
-RETURN a1.titulo , s2.VoiceActor AS Proximo_Rikako_Aida, a2.titulo, s3.VoiceActor AS Trabalhou_com_proximos_Rikako_aida
-ORDER BY a1.titulo, s2.VoiceActor, a2.titulo, s3.VoiceActor
-
-
-    
-
-MATCH (s1:seiyuu)-[:participa]->(a1:anime)<-[:participa]-(s2:seiyuu)-[:participa]->(a2:anime)<-[:participa]-(s3:seiyuu)
-WHERE s1 <> s3
-AND s1.VoiceActor =~ '(?i).*rikako aida.*'
-RETURN a1.Name , s2.VoiceActor AS Proximo_rikako_aida, a2.Name, s3.VoiceActor AS Trabalhou_com_proximos_rikako_aida
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN a1.Name , s2.VoiceActor AS Proximo_Rikako_Aida, a2.Name, s3.VoiceActor AS Trabalhou_com_proximos_Rikako_aida
 ORDER BY a1.Name, s2.VoiceActor, a2.Name, s3.VoiceActor
 
 
-
-
-
-///recomendação
-
-//participações de cada ator   -- 03/junho
-MATCH (s)<-[:participa]-(a)
-WHERE e.tipo_participação =~ '(?i).*act.*'
-RETURN a.nome, COUNT(e) AS Contagem
-ORDER BY Contagem DESC
-
-// filmes do Selton Mello 
-MATCH (f)-[e:Elenco]->(a)
-WHERE a.nome =~ '(?i).*selton mello.*'
-RETURN *
-
-MATCH (f)-[e:Elenco]->(a)
-WHERE f.titulo_original =~ '(?i).*godfather.*'
-RETURN *
-
-MATCH (f)-[e:Elenco]->(a)
-WHERE a.nome =~ '(?i).*paulo gustavo.*'
-RETURN *
-
-// quem trabalhou com Selton Mello atuando  
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*act.*'
-AND a1.nome =~ '(?i).*selton mello.*'
-AND a1 <> a2
-RETURN *
-
-RETURN a2.nome
-ORDER BY a2.nome
-
-// quem mais trabalhou com o Selton Mello
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*act.*'
-AND a1.nome =~ '(?i).*selton mello.*'
-AND a1 <> a2
-RETURN a2.nome , COUNT(*) AS Qtas_Parcerias
-ORDER BY COUNT(*) DESC
-
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*act.*'
-AND a1.nome =~ '(?i).*paulo gustavo.*'
-AND a1 <> a2
-RETURN *
-
-
-// quantidade
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*act.*'
-AND a1.nome =~ '(?i).*paulo gustavo.*'
-RETURN a2.nome, COUNT(*) AS Qtas_parcerias
-ORDER BY Qtas_parcerias DESC
-
-//parcerias de paulo gustavo
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*act.*'
-AND a1.nome =~ '(?i).*paulo gustavo.*'
-RETURN a2.nome, COUNT(*) AS Qtas_parcerias
-ORDER BY Qtas_parcerias DESC
-
-// quem dirigiu Paulo Gustavo 
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*dir.*'
-AND a1.nome =~ '(?i).*paulo gustavo.*'
-RETURN a2.nome, f.titulo
-ORDER BY a2.nome
-
-// primeiro grau de proximidade, atuou diretamente no mesmo elenco
-MATCH (a1:Artista)<-[e1:Elenco]-(f)-[e2:Elenco]->(a2: Artista)
-WHERE e2.tipo_participação =~ '(?i).*act.*'
-AND a1.nome =~ '(?i).*paulo gustavo.*'
-RETURN *
-
-// Agora podemos virar a consulta do co-ator acima em uma consulta de recomendação seguindo esses relacionamentos com outra saída
-// para encontrar os "co-co-actores", isto é, os atores de segundo grau na rede de Selton Mello
-// Isso nos mostrará todos os atores que Selton ainda não trabalhou, e podemos especificar um critério 
-// para ter certeza de que ele não atuou diretamente com essa pessoa.
-
-// segundo grau - Funcionou  paulo gustavo  selton mello
-MATCH (s1:seiyuu)<-[:participa]-(a1:anime)-[:participa]->(s2:seiyuu)<-[:participa]-(a2:anime)-[:participa]->(s3:seiyuu)
+//Relacionamento segundo nivel - Dubladores que trabalharam em Animes com a dubladora Aina Suzuki que Trabalhou com Rikako Aida - Grafo 
+//Detalhe na dubladora 'Aina Suzuki'
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)
 WHERE s1 <> s3
 AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
-AND NOT (s1)<-[:participa]-(:anime)-[:participa]->(s3)
-RETURN a1.titulo , s2.VoiceActor AS Proximo_Rikako_Aida, a2.titulo, s3.VoiceActor AS Trabalhou_com_proximos_Rikako_aida
-ORDER BY a1.titulo, s2.VoiceActor, a2.titulo, s3.VoiceActor
-
-// caminho para chegar ao Fábio Porchat 
-MATCH (a1:Artista)<-[e1:Elenco]-(f1:Filme)-[e2:Elenco]->(a2:Artista)<-[e3:Elenco]-(f2:Filme)-[e4:Elenco]->(a3:Artista)
-WHERE a1.nome =~ '(?i).*paulo gustavo.*'
-AND a3.nome =~ '(?i).*porchat.*'
-AND e2.tipo_participação =~ '(?i).*act.*'
-AND e3.tipo_participação =~ '(?i).*act.*'
-AND e4.tipo_participação =~ '(?i).*act.*'
-AND NOT (a1)<-[:Elenco]-(:Filme)-[:Elenco]->(a3)
+AND s2.VoiceActor =~ '(?i).*Aina Suzuki.*'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
 RETURN *
 
-//***** atores que paulo gustavo não trabalhou ainda, e a força para chegar até ele(a) - número de conexões do intermediário
-MATCH (a1:Artista)<-[:Elenco]-(f1)-[e2:Elenco]->(a2),
-  (a2)<-[e3:Elenco]-(f2)-[e4:Elenco]->(a3)
-WHERE a1.nome =~ '(?i).*paulo gustavo.*'
-AND a3.nome =~ '(?i).*dira paes.*'
-AND e2.tipo_participação =~ '(?i).*act.*'
-AND e3.tipo_participação =~ '(?i).*act.*'
-AND e4.tipo_participação =~ '(?i).*act.*'
-AND NOT (a1)<-[:Elenco]-()-[:Elenco]->(a3) AND a1 <> a3
+
+------------Recomendação-----------------------------------------------------
+
+// Recomendação Segundo nivel -  Anime baseado na dubladora Aina Suzuki que trabalhou com Rikako Aida - Grafo 
+// Detalhe na dubladora 'Aina Suzuki' e no anime 'Dropkick on My Devil!'
+// Rikako Aida -> Anime que Trabalhou com Aina Suzuki -> Aina Suzuki -> Animes que ela trabalhou com outros dubladores -> Outros dubladores -> Anime que esses outros dubladores trabalharam
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)<-[c5:cast]-(a3:anime)
+WHERE s1 <> s3
+AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s2.VoiceActor =~ '(?i).*Aina Suzuki.*'
+AND a2.Name ='Dropkick on My Devil!'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
 RETURN *
-RETURN a3.nome AS Recomendado, COUNT(*) AS Força
+
+
+// Recomendação Segundo nivel -  Anime baseado na dubladora Aina Suzuki que trabalhou com Rikako Aida - Tabela
+// Detalhe na dubladora 'Aina Suzuki' e no anime 'Dropkick on My Devil!'
+// Rikako Aida -> Anime que Trabalhou com Aina Suzuki -> Aina Suzuki -> Animes que ela trabalhou com outros dubladores -> Outros dubladores -> Anime que esses outros dubladores trabalharam
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)<-[c5:cast]-(a3:anime)
+WHERE s1 <> s3
+AND s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s2.VoiceActor =~ '(?i).*Aina Suzuki.*'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN a1.Name , s2.VoiceActor AS Proximo_Rikako_Aida, a2.Name, s3.VoiceActor AS Trabalhou_com_proximos_Rikako_aida, a3.Name
+ORDER BY a1.Name, s2.VoiceActor, a2.Name, s3.VoiceActor, a3.Name
+
+
+------------Caminhos-----------------------------------------------------
+
+// caminho para chegar até Riho Iida - Grafo
+MATCH (s1:seiyuu)<-[c1:cast]-(a1:anime)-[c2:cast]->(s2:seiyuu)<-[c3:cast]-(a2:anime)-[c4:cast]->(s3:seiyuu)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s3.VoiceActor =~ '(?i).*Riho Iida.*'
+AND NOT (s1)<-[:cast]-(:anime)-[:cast]->(s3)
+RETURN *
+
+//Caminhos e força de cada Caminho para chegar até Riho Iida - Tabela
+MATCH (s1:seiyuu)<-[c1:cast]-(a1)-[c2:cast]->(s2), (s2)<-[c3:cast]-(a2)-[c4:cast]->(s3)
+WHERE s1.VoiceActor =~ '(?i).*Rikako Aida.*'
+AND s3.VoiceActor =~ '(?i).*Riho Iida.*'
+AND NOT (s1)<-[:cast]-()-[:cast]->(s3) AND s1 <> s3
+RETURN s2.VoiceActor, s3.VoiceActor AS Recomendado, COUNT(*) AS Força
 ORDER BY Força DESC
+
